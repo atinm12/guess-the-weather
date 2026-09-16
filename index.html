@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guess the Weather</title>
+<style>
+  /* ---- Theme tokens ---- */
+  :root {
+    --bg: #eef4fb;
+    --bg-grad-1: #dbeafe;
+    --bg-grad-2: #eef4fb;
+    --card: #ffffff;
+    --card-2: #f5f8fc;
+    --ink: #1a2433;
+    --ink-soft: #55617a;
+    --accent: #2f6fed;
+    --accent-ink: #ffffff;
+    --good: #1f9d57;
+    --good-bg: #e3f6ec;
+    --bad: #d23b3b;
+    --bad-bg: #fbe6e6;
+    --line: #dde5f0;
+    --shadow: 0 10px 30px rgba(30, 60, 120, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1420;
+      --bg-grad-1: #101c2e;
+      --bg-grad-2: #0e1420;
+      --card: #18202e;
+      --card-2: #1e2836;
+      --ink: #eaf0f8;
+      --ink-soft: #9fb0c8;
+      --accent: #5b8dff;
+      --accent-ink: #0e1420;
+      --good: #43c07f;
+      --good-bg: #123023;
+      --bad: #ff6b6b;
+      --bad-bg: #341a1a;
+      --line: #2a3547;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1420; --bg-grad-1: #101c2e; --bg-grad-2: #0e1420;
+    --card: #18202e; --card-2: #1e2836; --ink: #eaf0f8; --ink-soft: #9fb0c8;
+    --accent: #5b8dff; --accent-ink: #0e1420; --good: #43c07f; --good-bg: #123023;
+    --bad: #ff6b6b; --bad-bg: #341a1a; --line: #2a3547; --shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, var(--bg-grad-1), var(--bg-grad-2)) fixed;
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+
+  header { text-align: center; margin-bottom: 18px; }
+  header h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  header p { margin: 0; color: var(--ink-soft); font-size: 0.9rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 22px;
+  }
+
+  /* ---- Buttons ---- */
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--card-2);
+    color: var(--ink);
+    padding: 14px 16px;
+    transition: transform .05s ease, border-color .15s ease, background .15s ease;
+    text-align: left;
+    width: 100%;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { cursor: default; opacity: 0.85; }
+  .btn-primary {
+    background: var(--accent); color: var(--accent-ink);
+    border-color: var(--accent); text-align: center; font-weight: 600;
+  }
+  .btn-ghost { text-align: center; background: transparent; }
+
+  .mode-btn { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .mode-btn .emoji { font-size: 1.5rem; }
+  .mode-btn .t { font-weight: 600; }
+  .mode-btn .d { font-size: 0.82rem; color: var(--ink-soft); font-weight: 400; }
+
+  /* ---- Settings row ---- */
+  .settings {
+    display: flex; gap: 10px; align-items: center; justify-content: center;
+    flex-wrap: wrap; margin-top: 16px; color: var(--ink-soft); font-size: 0.85rem;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { width: auto; border: 0; border-radius: 0; padding: 8px 14px; background: var(--card-2); }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); }
+
+  /* ---- Weather card ---- */
+  .wcard {
+    background: var(--card-2); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px; margin: 4px 0 16px; text-align: center;
+  }
+  .wcard .big { font-size: 3rem; line-height: 1; margin-bottom: 6px; }
+  .wcard .cond { font-size: 1.1rem; font-weight: 600; }
+  .wcard .stats { display: flex; justify-content: center; gap: 18px; margin-top: 12px; flex-wrap: wrap; color: var(--ink-soft); font-size: 0.9rem; }
+  .wcard .stats b { color: var(--ink); font-weight: 600; }
+
+  .q { font-size: 1.05rem; font-weight: 600; margin: 4px 0 14px; text-align: center; }
+  .options { display: grid; gap: 10px; }
+  .options button.correct { background: var(--good-bg); border-color: var(--good); color: var(--ink); }
+  .options button.wrong { background: var(--bad-bg); border-color: var(--bad); color: var(--ink); }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; color: var(--ink-soft); font-size: 0.85rem; }
+  .feedback { text-align: center; font-weight: 600; margin: 14px 0; min-height: 1.2em; }
+  .feedback.good { color: var(--good); }
+  .feedback.bad { color: var(--bad); }
+
+  .banner { text-align: center; padding: 12px; border-radius: 12px; background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); margin-bottom: 12px; font-size: 0.9rem; }
+  .muted { color: var(--ink-soft); }
+  input[type="text"] {
+    width: 100%; font: inherit; padding: 13px 14px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--card-2); color: var(--ink); margin-bottom: 12px;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .spin { display: inline-block; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none; }
+  footer { text-align: center; margin-top: 16px; font-size: 0.78rem; color: var(--ink-soft); }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🌦️ Guess the Weather</h1>
+    <p>A live weather quiz — data from Open-Meteo, no API key needed</p>
+  </header>
+
+  <div class="card" id="screen"><!-- screens render here --></div>
+
+  <footer>
+    Powered by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> ·
+    weather is live, so answers change through the day
+  </footer>
+</div>
+
+<script>
+/* =========================================================================
+   Guess the Weather — browser edition
+   A direct port of the console game. Open-Meteo is keyless, so the browser
+   can safely call it with no backend and no secret to expose.
+   ========================================================================= */
+
+// ---- City data (climate-diverse; hard-coded coords => one call per question) ----
+const CITIES = [
+  {name:"Reykjavik", country:"Iceland", lat:64.15, lon:-21.90},
+  {name:"Anchorage", country:"USA", lat:61.22, lon:-149.90},
+  {name:"Oslo", country:"Norway", lat:59.91, lon:10.75},
+  {name:"Moscow", country:"Russia", lat:55.76, lon:37.62},
+  {name:"London", country:"UK", lat:51.51, lon:-0.13},
+  {name:"Berlin", country:"Germany", lat:52.52, lon:13.40},
+  {name:"Vancouver", country:"Canada", lat:49.28, lon:-123.12},
+  {name:"Toronto", country:"Canada", lat:43.65, lon:-79.38},
+  {name:"New York", country:"USA", lat:40.71, lon:-74.01},
+  {name:"Denver", country:"USA", lat:39.74, lon:-104.99},
+  {name:"Chicago", country:"USA", lat:41.88, lon:-87.63},
+  {name:"Seattle", country:"USA", lat:47.61, lon:-122.33},
+  {name:"Tokyo", country:"Japan", lat:35.68, lon:139.69},
+  {name:"Beijing", country:"China", lat:39.90, lon:116.40},
+  {name:"Rome", country:"Italy", lat:41.90, lon:12.50},
+  {name:"Madrid", country:"Spain", lat:40.42, lon:-3.70},
+  {name:"Cairo", country:"Egypt", lat:30.04, lon:31.24},
+  {name:"Dubai", country:"UAE", lat:25.20, lon:55.27},
+  {name:"Mumbai", country:"India", lat:19.08, lon:72.88},
+  {name:"Delhi", country:"India", lat:28.61, lon:77.21},
+  {name:"Bangkok", country:"Thailand", lat:13.76, lon:100.50},
+  {name:"Singapore", country:"Singapore", lat:1.35, lon:103.82},
+  {name:"Nairobi", country:"Kenya", lat:-1.29, lon:36.82},
+  {name:"Cape Town", country:"South Africa", lat:-33.92, lon:18.42},
+  {name:"Lima", country:"Peru", lat:-12.05, lon:-77.04},
+  {name:"Mexico City", country:"Mexico", lat:19.43, lon:-99.13},
+  {name:"Buenos Aires", country:"Argentina", lat:-34.60, lon:-58.38},
+  {name:"Sydney", country:"Australia", lat:-33.87, lon:151.21},
+  {name:"Honolulu", country:"USA", lat:21.31, lon:-157.86},
+  {name:"Phoenix", country:"USA", lat:33.45, lon:-112.07},
+];
+
+// ---- WMO weather codes -> description + emoji ----
+const WMO = {
+  0:["Clear sky","☀️"], 1:["Mainly clear","🌤️"], 2:["Partly cloudy","⛅"], 3:["Overcast","☁️"],
+  45:["Fog","🌫️"], 48:["Rime fog","🌫️"],
+  51:["Light drizzle","🌦️"], 53:["Drizzle","🌦️"], 55:["Dense drizzle","🌧️"],
+  56:["Freezing drizzle","🌧️"], 57:["Freezing drizzle","🌧️"],
+  61:["Slight rain","🌧️"], 63:["Rain","🌧️"], 65:["Heavy rain","⛈️"],
+  66:["Freezing rain","🌧️"], 67:["Freezing rain","🌧️"],
+  71:["Light snow","🌨️"], 73:["Snow","🌨️"], 75:["Heavy snow","❄️"], 77:["Snow grains","🌨️"],
+  80:["Rain showers","🌦️"], 81:["Rain showers","🌧️"], 82:["Violent showers","⛈️"],
+  85:["Snow showers","🌨️"], 86:["Heavy snow showers","❄️"],
+  95:["Thunderstorm","⛈️"], 96:["Thunderstorm + hail","⛈️"], 99:["Thunderstorm + hail","⛈️"],
+};
+function describe(code){ return WMO[code] || ["Unknown conditions","❓"]; }
+
+// ---- Settings (user-adjustable params) ----
+const settings = { units: "C", rounds: 5 };
+function cToF(c){ return c * 9/5 + 32; }
+function fmtTemp(c){ return settings.units === "F" ? `${Math.round(cToF(c))}°F` : `${Math.round(c)}°C`; }
+
+// ---- API layer -------------------------------------------------------------
+// A custom error type so the UI can show one friendly message for any failure.
+class WeatherError extends Error {}
+
+async function getJSON(url){
+  let resp;
+  try {
+    resp = await fetch(url);
+  } catch (e) {
+    // Network down, DNS failure, CORS, etc. all land here.
+    throw new WeatherError("Couldn't reach the weather service — check your internet connection.");
+  }
+  if (!resp.ok) throw new WeatherError(`The weather service returned an error (${resp.status}).`);
+  try {
+    return await resp.json();
+  } catch (e) {
+    throw new WeatherError("Got an unreadable response from the weather service.");
+  }
+}
+
+async function getWeather(lat, lon){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+    + `&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature`;
+  const data = await getJSON(url);
+  const c = data.current;
+  if (!c || c.temperature_2m === undefined || c.weather_code === undefined) {
+    throw new WeatherError("Weather response was missing expected fields.");
+  }
+  const [desc, emoji] = describe(c.weather_code);
+  return {
+    temp_c: c.temperature_2m, feels_c: c.apparent_temperature,
+    humidity: c.relative_humidity_2m, wind: c.wind_speed_10m,
+    code: c.weather_code, desc, emoji,
+  };
+}
+
+async function geocode(name){
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}`
+    + `&count=1&language=en&format=json`;
+  const data = await getJSON(url);
+  if (!data.results || data.results.length === 0) return null; // not found
+  const r = data.results[0];
+  return { name: r.name, country: r.country || "", lat: r.latitude, lon: r.longitude };
+}
+
+// ---- Small helpers ---------------------------------------------------------
+const screen = document.getElementById("screen");
+function el(html){ const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
+function sample(arr, n){ // n distinct random items
+  const copy = [...arr]; const out = [];
+  while (out.length < n && copy.length) out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);
+  return out;
+}
+function shuffle(arr){ return [...arr].sort(() => Math.random() - 0.5); }
+function weatherCardHTML(w, showName, name){
+  return `<div class="wcard">
+    <div class="big">${w.emoji}</div>
+    <div class="cond">${showName ? name + " — " : ""}${w.desc}</div>
+    <div class="stats">
+      <span><b>${fmtTemp(w.temp_c)}</b> temp</span>
+      <span>feels <b>${fmtTemp(w.feels_c)}</b></span>
+      <span><b>${w.humidity}%</b> humidity</span>
+      <span><b>${Math.round(w.wind)}</b> km/h wind</span>
+    </div>
+  </div>`;
+}
+
+// =========================================================================
+//  MENU
+// =========================================================================
+function renderMenu(){
+  screen.innerHTML = "";
+  const modes = [
+    ["city","🏙️","Guess the City","See live weather, name the city"],
+    ["temp","🌡️","Guess the Temperature","Pick the right temperature range"],
+    ["hotter","🔥","Hotter City","Two cities — pick the warmer one"],
+    ["lookup","🔎","Weather Lookup","Check any city's weather right now"],
+  ];
+  modes.forEach(([id,emoji,t,d]) => {
+    const b = el(`<button class="mode-btn"><span class="emoji">${emoji}</span>
+      <span><span class="t">${t}</span><br><span class="d">${d}</span></span></button>`);
+    b.onclick = () => startMode(id);
+    screen.appendChild(b);
+  });
+
+  // Settings row: units + rounds
+  const s = el(`<div class="settings">
+    <span>Units</span>
+    <span class="seg" id="unitSeg">
+      <button data-u="C" class="${settings.units==="C"?"on":""}">°C</button>
+      <button data-u="F" class="${settings.units==="F"?"on":""}">°F</button>
+    </span>
+    <span>Rounds</span>
+    <span class="seg" id="roundSeg">
+      ${[3,5,10].map(n=>`<button data-r="${n}" class="${settings.rounds===n?"on":""}">${n}</button>`).join("")}
+    </span>
+  </div>`);
+  screen.appendChild(s);
+  s.querySelectorAll("#unitSeg button").forEach(b => b.onclick = () => { settings.units = b.dataset.u; renderMenu(); });
+  s.querySelectorAll("#roundSeg button").forEach(b => b.onclick = () => { settings.rounds = +b.dataset.r; renderMenu(); });
+}
+
+function startMode(id){
+  if (id === "lookup") return renderLookup();
+  game.mode = id; game.round = 0; game.score = 0;
+  nextRound();
+}
+
+// =========================================================================
+//  QUIZ ENGINE (modes: city / temp / hotter)
+// =========================================================================
+const game = { mode: null, round: 0, score: 0 };
+
+function loadingScreen(){
+  screen.innerHTML = `<div class="q"><span class="spin">🌀</span> Fetching live weather…</div>`;
+}
+function errorScreen(msg){
+  screen.innerHTML = "";
+  screen.appendChild(el(`<div class="banner">${msg}</div>`));
+  const retry = el(`<button class="btn-primary">Try again</button>`);
+  retry.onclick = () => nextRound();
+  const back = el(`<button class="btn-ghost" style="margin-top:10px">Back to menu</button>`);
+  back.onclick = renderMenu;
+  screen.appendChild(retry); screen.appendChild(back);
+}
+
+async function nextRound(){
+  game.round++;
+  if (game.round > settings.rounds) return endGame();
+  loadingScreen();
+  try {
+    if (game.mode === "city") await roundCity();
+    else if (game.mode === "temp") await roundTemp();
+    else if (game.mode === "hotter") await roundHotter();
+  } catch (e) {
+    if (e instanceof WeatherError) errorScreen(e.message);
+    else errorScreen("Something went wrong loading this round.");
+  }
+}
+
+function topbarHTML(){
+  return `<div class="topbar"><span>Round ${game.round} / ${settings.rounds}</span>
+    <span>Score: ${game.score}</span></div>`;
+}
+
+// Renders a multiple-choice question and wires up scoring + a Next button.
+function renderQuestion({questionHTML, options, correctIndex, reveal}){
+  screen.innerHTML = "";
+  screen.appendChild(el(topbarHTML()));
+  if (questionHTML) screen.appendChild(el(questionHTML));
+  const optWrap = el(`<div class="options"></div>`);
+  const buttons = options.map((label, i) => {
+    const b = el(`<button>${label}</button>`);
+    b.onclick = () => answer(i);
+    optWrap.appendChild(b);
+    return b;
+  });
+  screen.appendChild(optWrap);
+  const fb = el(`<div class="feedback"></div>`);
+  screen.appendChild(fb);
+
+  function answer(chosen){
+    buttons.forEach((b,i) => {
+      b.disabled = true;
+      if (i === correctIndex) b.classList.add("correct");
+      if (i === chosen && chosen !== correctIndex) b.classList.add("wrong");
+    });
+    if (chosen === correctIndex){ game.score++; fb.textContent = "✅ Correct! " + reveal; fb.className = "feedback good"; }
+    else { fb.textContent = "❌ " + reveal; fb.className = "feedback bad"; }
+
+    const next = el(`<button class="btn-primary">${game.round >= settings.rounds ? "See results" : "Next question →"}</button>`);
+    next.onclick = () => nextRound();
+    screen.appendChild(next);
+  }
+}
+
+// Mode 1: guess the city from a weather readout
+async function roundCity(){
+  const picks = sample(CITIES, 4);
+  const answer = picks[Math.floor(Math.random()*picks.length)];
+  const w = await getWeather(answer.lat, answer.lon);
+  renderQuestion({
+    questionHTML: weatherCardHTML(w, false) + `<div class="q">Which city has this weather right now?</div>`,
+    options: picks.map(c => `${c.name}, ${c.country}`),
+    correctIndex: picks.indexOf(answer),
+    reveal: `It's ${answer.name}, ${answer.country}.`,
+  });
+}
+
+// Mode 2: guess the temperature bucket
+const BUCKETS = ["Below 0°C","0–10°C","10–20°C","20–30°C","Above 30°C"];
+function bucketOf(c){ if (c<0) return 0; if (c<10) return 1; if (c<20) return 2; if (c<30) return 3; return 4; }
+async function roundTemp(){
+  const city = CITIES[Math.floor(Math.random()*CITIES.length)];
+  const w = await getWeather(city.lat, city.lon);
+  const correct = BUCKETS[bucketOf(w.temp_c)];
+  const distractors = shuffle(BUCKETS.filter(b => b !== correct)).slice(0,3);
+  const opts = shuffle([correct, ...distractors]);
+  renderQuestion({
+    questionHTML: `<div class="q">🌡️ What's the current temperature in<br><b>${city.name}, ${city.country}</b>?</div>`,
+    options: opts,
+    correctIndex: opts.indexOf(correct),
+    reveal: `It's ${fmtTemp(w.temp_c)} in ${city.name}.`,
+  });
+}
+
+// Mode 3: which city is hotter
+async function roundHotter(){
+  let a, b, wa, wb;
+  for (let tries = 0; tries < 5; tries++){
+    [a, b] = sample(CITIES, 2);
+    [wa, wb] = await Promise.all([getWeather(a.lat,a.lon), getWeather(b.lat,b.lon)]);
+    if (wa.temp_c !== wb.temp_c) break;
+  }
+  const aHotter = wa.temp_c > wb.temp_c;
+  renderQuestion({
+    questionHTML: `<div class="q">🔥 Which city is warmer right now?</div>`,
+    options: [`${a.name}, ${a.country}`, `${b.name}, ${b.country}`],
+    correctIndex: aHotter ? 0 : 1,
+    reveal: `${a.name} ${fmtTemp(wa.temp_c)} · ${b.name} ${fmtTemp(wb.temp_c)}.`,
+  });
+}
+
+function endGame(){
+  const pct = game.score / settings.rounds;
+  let msg = "Rough one! The atmosphere had other plans.";
+  if (pct === 1) msg = "Perfect round — you really know your weather! 🏆";
+  else if (pct >= 0.6) msg = "Nice work — sharp guessing. 🎯";
+  else if (pct > 0) msg = "Not bad — the planet is a big place. 🌍";
+  screen.innerHTML = `<div class="q" style="font-size:1.4rem">You scored ${game.score} / ${settings.rounds}</div>
+    <div class="feedback good">${msg}</div>`;
+  const again = el(`<button class="btn-primary">Play again</button>`);
+  again.onclick = () => startMode(game.mode);
+  const menu = el(`<button class="btn-ghost" style="margin-top:10px">Back to menu</button>`);
+  menu.onclick = renderMenu;
+  screen.appendChild(again); screen.appendChild(menu);
+}
+
+// =========================================================================
+//  MODE 4: LOOKUP (free-text; uses the geocoding endpoint)
+// =========================================================================
+function renderLookup(){
+  screen.innerHTML = "";
+  screen.appendChild(el(`<div class="q">🔎 Weather Lookup</div>`));
+  const input = el(`<input type="text" placeholder="Type a city, e.g. Paris" autocomplete="off">`);
+  screen.appendChild(input);
+  const result = el(`<div id="lookupResult"></div>`);
+  const row = el(`<div class="row"></div>`);
+  const go = el(`<button class="btn-primary">Get weather</button>`);
+  const back = el(`<button class="btn-ghost">Back to menu</button>`);
+  row.appendChild(go); row.appendChild(back);
+  screen.appendChild(row);
+  screen.appendChild(result);
+  back.onclick = renderMenu;
+
+  async function doLookup(){
+    const name = input.value.trim();
+    if (!name){ result.innerHTML = `<div class="feedback muted">Please type a city name.</div>`; return; }
+    result.innerHTML = `<div class="q"><span class="spin">🌀</span> Looking up ${name}…</div>`;
+    try {
+      const place = await geocode(name);
+      if (!place){ result.innerHTML = `<div class="banner">Couldn't find a city called “${name}”. Check the spelling.</div>`; return; }
+      const w = await getWeather(place.lat, place.lon);
+      const title = [place.name, place.country].filter(Boolean).join(", ");
+      result.innerHTML = weatherCardHTML(w, true, title);
+    } catch (e) {
+      const msg = (e instanceof WeatherError) ? e.message : "Something went wrong.";
+      result.innerHTML = `<div class="banner">${msg}</div>`;
+    }
+  }
+  go.onclick = doLookup;
+  input.addEventListener("keydown", e => { if (e.key === "Enter") doLookup(); });
+  input.focus();
+}
+
+// ---- Boot ----
+renderMenu();
+</script>
+</body>
+</html>

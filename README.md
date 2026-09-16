@@ -1,8 +1,17 @@
 # Guess the Weather 🌦️
 
-A small console game that quizzes you on **live, real-world weather**. Pick a
-mode from the menu and the game pulls current conditions from the internet, so
-the answers change through the day — it's never the same quiz twice.
+A small game that quizzes you on **live, real-world weather**. Pick a mode and
+it pulls current conditions from the internet, so the answers change through the
+day — it's never the same quiz twice.
+
+It comes in **two versions**:
+
+- 🌐 **Web version** ([`index.html`](index.html)) — play it in a browser, no install.
+  **▶ Play it live:** _enable GitHub Pages, then your link is_
+  `https://<your-username>.github.io/<repo-name>/`
+- 💻 **Console version** ([`weather_quiz.py`](weather_quiz.py)) — the original terminal game.
+
+Both use the same keyless Open-Meteo API and offer the same four modes.
 
 ## Game modes
 
@@ -40,7 +49,12 @@ habit even when there are no keys.)
 
 ## Running it
 
-You need Python 3.8+ and the `requests` package.
+**Web version (easiest):** open [`index.html`](index.html) in any browser — just
+double-click the file, or host it for free on **GitHub Pages** (repo Settings →
+Pages → deploy from `main`, root) to get a shareable link. Because Open-Meteo
+needs no key, it's safe to call directly from the browser with no backend.
+
+**Console version:** you need Python 3.8+ and the `requests` package.
 
 ```bash
 pip install -r requirements.txt
@@ -48,6 +62,10 @@ python3 weather_quiz.py
 ```
 
 Then follow the on-screen menu.
+
+> **Why a key-free API matters here:** never put a real API key in front-end
+> JavaScript — anyone can read it in the browser's dev tools. The keyless
+> Open-Meteo API is what makes a safe, backend-free web version possible.
 
 ## Handling things going wrong
 
@@ -63,8 +81,9 @@ The app is built to fail gracefully rather than crash:
 
 ## Files
 
-- [`weather_quiz.py`](weather_quiz.py) — the game: menu, modes, scoring, input handling.
-- [`weather_api.py`](weather_api.py) — the API layer: geocoding, current weather, WMO code map, error handling.
+- [`index.html`](index.html) — the web version: self-contained HTML/CSS/JS, all four modes, calls Open-Meteo directly from the browser.
+- [`weather_quiz.py`](weather_quiz.py) — the console game: menu, modes, scoring, input handling.
+- [`weather_api.py`](weather_api.py) — the console API layer: geocoding, current weather, WMO code map, error handling.
 - [`prompt_log.md`](prompt_log.md) — the AI tools and key prompts used to build this.
 
 ## AI prompt log
