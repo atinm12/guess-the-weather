@@ -4,155 +4,305 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Guess the Weather</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* ---- Theme tokens ---- */
   :root {
-    --bg: #eef4fb;
-    --bg-grad-1: #dbeafe;
-    --bg-grad-2: #eef4fb;
-    --card: #ffffff;
-    --card-2: #f5f8fc;
-    --ink: #1a2433;
-    --ink-soft: #55617a;
-    --accent: #2f6fed;
-    --accent-ink: #ffffff;
-    --good: #1f9d57;
-    --good-bg: #e3f6ec;
-    --bad: #d23b3b;
-    --bad-bg: #fbe6e6;
-    --line: #dde5f0;
-    --shadow: 0 10px 30px rgba(30, 60, 120, 0.12);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0e1420;
-      --bg-grad-1: #101c2e;
-      --bg-grad-2: #0e1420;
-      --card: #18202e;
-      --card-2: #1e2836;
-      --ink: #eaf0f8;
-      --ink-soft: #9fb0c8;
-      --accent: #5b8dff;
-      --accent-ink: #0e1420;
-      --good: #43c07f;
-      --good-bg: #123023;
-      --bad: #ff6b6b;
-      --bad-bg: #341a1a;
-      --line: #2a3547;
-      --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #0e1420; --bg-grad-1: #101c2e; --bg-grad-2: #0e1420;
-    --card: #18202e; --card-2: #1e2836; --ink: #eaf0f8; --ink-soft: #9fb0c8;
-    --accent: #5b8dff; --accent-ink: #0e1420; --good: #43c07f; --good-bg: #123023;
-    --bad: #ff6b6b; --bad-bg: #341a1a; --line: #2a3547; --shadow: 0 10px 30px rgba(0,0,0,0.4);
+    --ink: #223056;
+    --ink-soft: #5a6b8c;
+    --panel: rgba(255,255,255,0.94);
+    --line: #e3ecf7;
+    --shadow: 0 16px 40px rgba(60, 90, 150, 0.18);
+    --shadow-sm: 0 6px 18px rgba(60, 90, 150, 0.14);
+
+    /* per-card accent + pastel fill */
+    --city: #2f74e0;      --city-bg: #dcebfd;
+    --temp: #e14b4b;      --temp-bg: #fde3e3;
+    --hotter: #efa022;    --hotter-bg: #fff0d4;
+    --lookup: #1f9f5c;    --lookup-bg: #dcf3e5;
+
+    --good: #1f9f5c; --good-bg: #e2f6ea;
+    --bad: #e14b4b;  --bad-bg: #fde3e3;
   }
 
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: radial-gradient(1200px 600px at 50% -10%, var(--bg-grad-1), var(--bg-grad-2)) fixed;
+    font-family: "Nunito", system-ui, -apple-system, sans-serif;
     color: var(--ink);
     min-height: 100vh;
+    position: relative;
+    padding: 26px 16px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Scenic illustrated background ---- */
+  .scene {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    object-fit: cover;
+  }
+
+  .wrap { width: 100%; max-width: 900px; margin: 0 auto; }
+
+  /* ---- Hero ---- */
+  header { text-align: center; margin: 6px 0 26px; }
+  header h1 {
+    font-family: "Fredoka", sans-serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 6vw, 2.9rem);
+    margin: 0 0 6px;
+    color: #223056;
+    letter-spacing: 0.2px;
+  }
+  header h1 .sun { filter: drop-shadow(0 3px 6px rgba(240,180,30,0.5)); }
+  header p {
+    margin: 0; color: #45577c; font-size: clamp(0.9rem, 2.6vw, 1.05rem);
+    font-weight: 700;
+  }
+
+  /* ---- Mode cards ---- */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 620px) { .mode-grid { grid-template-columns: 1fr; } }
+
+  .mode-card {
     display: flex;
-    justify-content: center;
-    padding: 24px 16px 48px;
-  }
-  .wrap { width: 100%; max-width: 560px; }
-
-  header { text-align: center; margin-bottom: 18px; }
-  header h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
-  header p { margin: 0; color: var(--ink-soft); font-size: 0.9rem; }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    box-shadow: var(--shadow);
-    padding: 22px;
-  }
-
-  /* ---- Buttons ---- */
-  button {
-    font: inherit;
-    cursor: pointer;
-    border-radius: 12px;
-    border: 1px solid var(--line);
-    background: var(--card-2);
-    color: var(--ink);
-    padding: 14px 16px;
-    transition: transform .05s ease, border-color .15s ease, background .15s ease;
+    align-items: center;
+    gap: 14px;
     text-align: left;
     width: 100%;
+    border: 0;
+    cursor: pointer;
+    border-radius: 22px;
+    padding: 20px 20px;
+    background: var(--fill);
+    box-shadow: var(--shadow-sm);
+    transition: transform .12s ease, box-shadow .12s ease;
+    font-family: inherit;
   }
-  button:hover:not(:disabled) { border-color: var(--accent); }
-  button:active:not(:disabled) { transform: translateY(1px); }
-  button:disabled { cursor: default; opacity: 0.85; }
-  .btn-primary {
-    background: var(--accent); color: var(--accent-ink);
-    border-color: var(--accent); text-align: center; font-weight: 600;
+  .mode-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+  .mode-card:active { transform: translateY(-1px); }
+  .mode-card .emoji {
+    font-size: 1.9rem;
+    line-height: 1;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.12));
   }
-  .btn-ghost { text-align: center; background: transparent; }
+  .mode-card .body { flex: 1; min-width: 0; }
+  .mode-card .title {
+    display: block;
+    font-family: "Fredoka", sans-serif;
+    font-weight: 600;
+    font-size: 1.18rem;
+    color: var(--accent);
+    line-height: 1.15;
+  }
+  .mode-card .desc {
+    display: block;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+    font-weight: 700;
+    margin-top: 3px;
+  }
+  .mode-card .arrow {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  }
+  .m-city   { --fill: var(--city-bg);   --accent: var(--city); }
+  .m-temp   { --fill: var(--temp-bg);   --accent: var(--temp); }
+  .m-hotter { --fill: var(--hotter-bg); --accent: var(--hotter); }
+  .m-lookup { --fill: var(--lookup-bg); --accent: var(--lookup); }
 
-  .mode-btn { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-  .mode-btn .emoji { font-size: 1.5rem; }
-  .mode-btn .t { font-weight: 600; }
-  .mode-btn .d { font-size: 0.82rem; color: var(--ink-soft); font-weight: 400; }
-
-  /* ---- Settings row ---- */
+  /* ---- Settings pill ---- */
   .settings {
-    display: flex; gap: 10px; align-items: center; justify-content: center;
-    flex-wrap: wrap; margin-top: 16px; color: var(--ink-soft); font-size: 0.85rem;
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; flex-wrap: wrap;
+    margin: 22px auto 0;
+    background: var(--panel);
+    border-radius: 999px;
+    padding: 12px 20px;
+    box-shadow: var(--shadow-sm);
+    width: fit-content;
+    max-width: 100%;
+    font-weight: 800;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
   }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  .seg button { width: auto; border: 0; border-radius: 0; padding: 8px 14px; background: var(--card-2); }
-  .seg button.on { background: var(--accent); color: var(--accent-ink); }
+  .seg { display: inline-flex; background: #eef3fa; border-radius: 999px; padding: 3px; }
+  .seg button {
+    border: 0; cursor: pointer; font-family: inherit; font-weight: 800;
+    background: transparent; color: var(--ink-soft);
+    padding: 7px 15px; border-radius: 999px; font-size: 0.9rem;
+    transition: background .12s ease, color .12s ease;
+  }
+  .seg button.on { background: var(--city); color: #fff; box-shadow: 0 3px 8px rgba(47,116,224,0.35); }
 
-  /* ---- Weather card ---- */
+  /* ---- Panel (game / lookup / results) ---- */
+  .panel {
+    background: var(--panel);
+    border-radius: 26px;
+    box-shadow: var(--shadow);
+    padding: 24px;
+  }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px; font-weight: 800; color: var(--ink-soft); font-size: 0.9rem;
+  }
+  .pill-tag { background: #eef3fa; border-radius: 999px; padding: 5px 12px; }
+
+  /* ---- Weather readout card ---- */
   .wcard {
-    background: var(--card-2); border: 1px solid var(--line); border-radius: 14px;
-    padding: 18px; margin: 4px 0 16px; text-align: center;
+    background: linear-gradient(180deg, #eaf3ff, #f6faff);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 20px; margin-bottom: 16px; text-align: center;
   }
-  .wcard .big { font-size: 3rem; line-height: 1; margin-bottom: 6px; }
-  .wcard .cond { font-size: 1.1rem; font-weight: 600; }
-  .wcard .stats { display: flex; justify-content: center; gap: 18px; margin-top: 12px; flex-wrap: wrap; color: var(--ink-soft); font-size: 0.9rem; }
-  .wcard .stats b { color: var(--ink); font-weight: 600; }
+  .wcard .big { font-size: 3.4rem; line-height: 1; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.12)); }
+  .wcard .cond { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 1.25rem; margin-top: 6px; }
+  .wcard .stats { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 12px; color: var(--ink-soft); font-size: 0.9rem; font-weight: 700; }
+  .wcard .stats b { color: var(--ink); }
 
-  .q { font-size: 1.05rem; font-weight: 600; margin: 4px 0 14px; text-align: center; }
-  .options { display: grid; gap: 10px; }
-  .options button.correct { background: var(--good-bg); border-color: var(--good); color: var(--ink); }
-  .options button.wrong { background: var(--bad-bg); border-color: var(--bad); color: var(--ink); }
+  .q {
+    font-family: "Fredoka", sans-serif; font-weight: 600;
+    font-size: 1.2rem; text-align: center; margin-bottom: 16px; line-height: 1.25;
+  }
 
-  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; color: var(--ink-soft); font-size: 0.85rem; }
-  .feedback { text-align: center; font-weight: 600; margin: 14px 0; min-height: 1.2em; }
+  .options { display: grid; gap: 11px; }
+  .opt {
+    border: 2px solid var(--line); background: #fff;
+    border-radius: 16px; padding: 15px 16px; cursor: pointer;
+    font-family: inherit; font-weight: 800; font-size: 1rem; color: var(--ink);
+    text-align: left; width: 100%;
+    transition: border-color .12s ease, background .12s ease, transform .05s ease;
+  }
+  .opt:hover:not(:disabled) { border-color: var(--city); }
+  .opt:active:not(:disabled) { transform: translateY(1px); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-bg); border-color: var(--good); }
+  .opt.wrong   { background: var(--bad-bg);  border-color: var(--bad); }
+
+  .feedback { text-align: center; font-weight: 800; margin: 16px 0 4px; min-height: 1.2em; font-size: 1.02rem; }
   .feedback.good { color: var(--good); }
-  .feedback.bad { color: var(--bad); }
+  .feedback.bad  { color: var(--bad); }
 
-  .banner { text-align: center; padding: 12px; border-radius: 12px; background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); margin-bottom: 12px; font-size: 0.9rem; }
+  .btn {
+    border: 0; cursor: pointer; font-family: "Fredoka", sans-serif; font-weight: 600;
+    font-size: 1.05rem; border-radius: 16px; padding: 15px 18px; width: 100%;
+    transition: transform .05s ease, filter .12s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--city); color: #fff; box-shadow: 0 6px 16px rgba(47,116,224,0.35); }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-ghost { background: #eef3fa; color: var(--ink); margin-top: 10px; }
+
+  .banner {
+    text-align: center; padding: 14px; border-radius: 16px;
+    background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad);
+    margin-bottom: 12px; font-weight: 800; font-size: 0.95rem;
+  }
   .muted { color: var(--ink-soft); }
   input[type="text"] {
-    width: 100%; font: inherit; padding: 13px 14px; border-radius: 12px;
-    border: 1px solid var(--line); background: var(--card-2); color: var(--ink); margin-bottom: 12px;
+    width: 100%; font-family: inherit; font-weight: 700; font-size: 1rem;
+    padding: 15px 16px; border-radius: 16px; border: 2px solid var(--line);
+    background: #fff; color: var(--ink); margin-bottom: 12px;
   }
+  input[type="text"]:focus { outline: none; border-color: var(--city); }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
   .spin { display: inline-block; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .hidden { display: none; }
-  footer { text-align: center; margin-top: 16px; font-size: 0.78rem; color: var(--ink-soft); }
-  footer a { color: var(--accent); }
+
+  footer {
+    text-align: center; margin-top: 22px; font-size: 0.82rem; color: #45577c; font-weight: 700;
+  }
+  footer a { color: var(--city); }
 </style>
 </head>
 <body>
+
+<!-- Scenic illustrated background -->
+<svg class="scene" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#8ec9ff"/>
+      <stop offset="55%" stop-color="#bfe1ff"/>
+      <stop offset="100%" stop-color="#e4f3ff"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff6c8" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#fff6c8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="600" fill="url(#sky)"/>
+
+  <!-- Sun -->
+  <circle cx="1075" cy="85" r="150" fill="url(#sunGlow)"/>
+  <g stroke="#ffd23f" stroke-width="7" stroke-linecap="round">
+    <line x1="1075" y1="-5" x2="1075" y2="20"/>
+    <line x1="1075" y1="150" x2="1075" y2="175"/>
+    <line x1="960" y1="85" x2="985" y2="85"/>
+    <line x1="1165" y1="85" x2="1190" y2="85"/>
+    <line x1="994" y1="4"  x2="1012" y2="22"/>
+    <line x1="1138" y1="148" x2="1156" y2="166"/>
+    <line x1="1156" y1="4"  x2="1138" y2="22"/>
+    <line x1="1012" y1="148" x2="994" y2="166"/>
+  </g>
+  <circle cx="1075" cy="85" r="52" fill="#ffd23f"/>
+
+  <!-- Clouds -->
+  <g fill="#ffffff" opacity="0.95">
+    <g>
+      <ellipse cx="150" cy="110" rx="60" ry="34"/>
+      <ellipse cx="205" cy="120" rx="46" ry="30"/>
+      <ellipse cx="100" cy="128" rx="42" ry="26"/>
+    </g>
+    <g opacity="0.85">
+      <ellipse cx="560" cy="70" rx="52" ry="28"/>
+      <ellipse cx="610" cy="80" rx="40" ry="24"/>
+      <ellipse cx="518" cy="82" rx="34" ry="20"/>
+    </g>
+    <g opacity="0.75">
+      <ellipse cx="820" cy="150" rx="46" ry="24"/>
+      <ellipse cx="862" cy="158" rx="34" ry="20"/>
+    </g>
+  </g>
+
+  <!-- Hills -->
+  <path d="M0,430 C220,388 430,450 640,418 C840,388 1030,452 1200,410 L1200,600 L0,600 Z" fill="#9bd77a"/>
+  <path d="M0,500 C260,462 470,516 720,486 C960,458 1090,514 1200,492 L1200,600 L0,600 Z" fill="#77c257"/>
+  <path d="M0,556 C240,532 520,576 760,556 C980,538 1100,570 1200,558 L1200,600 L0,600 Z" fill="#5aa83f"/>
+
+  <!-- Foreground bushes -->
+  <g fill="#4f9a38">
+    <circle cx="55" cy="585" r="55"/>
+    <circle cx="120" cy="595" r="45"/>
+    <circle cx="1150" cy="590" r="55"/>
+    <circle cx="1085" cy="598" r="42"/>
+  </g>
+</svg>
+
 <div class="wrap">
   <header>
-    <h1>🌦️ Guess the Weather</h1>
+    <h1><span class="sun">🌤️</span> Guess the Weather</h1>
     <p>A live weather quiz — data from Open-Meteo, no API key needed</p>
   </header>
 
-  <div class="card" id="screen"><!-- screens render here --></div>
+  <div id="screen"><!-- screens render here --></div>
 
   <footer>
     Powered by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> ·
@@ -163,8 +313,8 @@
 <script>
 /* =========================================================================
    Guess the Weather — browser edition
-   A direct port of the console game. Open-Meteo is keyless, so the browser
-   can safely call it with no backend and no secret to expose.
+   Open-Meteo is keyless, so the browser can call it directly: no backend,
+   no secret to expose.
    ========================================================================= */
 
 // ---- City data (climate-diverse; hard-coded coords => one call per question) ----
@@ -222,7 +372,6 @@ function cToF(c){ return c * 9/5 + 32; }
 function fmtTemp(c){ return settings.units === "F" ? `${Math.round(cToF(c))}°F` : `${Math.round(c)}°C`; }
 
 // ---- API layer -------------------------------------------------------------
-// A custom error type so the UI can show one friendly message for any failure.
 class WeatherError extends Error {}
 
 async function getJSON(url){
@@ -230,7 +379,6 @@ async function getJSON(url){
   try {
     resp = await fetch(url);
   } catch (e) {
-    // Network down, DNS failure, CORS, etc. all land here.
     throw new WeatherError("Couldn't reach the weather service — check your internet connection.");
   }
   if (!resp.ok) throw new WeatherError(`The weather service returned an error (${resp.status}).`);
@@ -261,7 +409,7 @@ async function geocode(name){
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}`
     + `&count=1&language=en&format=json`;
   const data = await getJSON(url);
-  if (!data.results || data.results.length === 0) return null; // not found
+  if (!data.results || data.results.length === 0) return null;
   const r = data.results[0];
   return { name: r.name, country: r.country || "", lat: r.latitude, lon: r.longitude };
 }
@@ -269,7 +417,8 @@ async function geocode(name){
 // ---- Small helpers ---------------------------------------------------------
 const screen = document.getElementById("screen");
 function el(html){ const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
-function sample(arr, n){ // n distinct random items
+function newPanel(){ screen.innerHTML = ""; const p = el(`<div class="panel"></div>`); screen.appendChild(p); return p; }
+function sample(arr, n){
   const copy = [...arr]; const out = [];
   while (out.length < n && copy.length) out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);
   return out;
@@ -293,20 +442,24 @@ function weatherCardHTML(w, showName, name){
 // =========================================================================
 function renderMenu(){
   screen.innerHTML = "";
+  const grid = el(`<div class="mode-grid"></div>`);
   const modes = [
-    ["city","🏙️","Guess the City","See live weather, name the city"],
-    ["temp","🌡️","Guess the Temperature","Pick the right temperature range"],
-    ["hotter","🔥","Hotter City","Two cities — pick the warmer one"],
-    ["lookup","🔎","Weather Lookup","Check any city's weather right now"],
+    ["city","🏙️","Guess the City","See live weather, name the city","m-city"],
+    ["temp","🌡️","Guess the Temperature","Pick the right temperature range","m-temp"],
+    ["hotter","🔥","Hotter City","Two cities — pick the warmer one","m-hotter"],
+    ["lookup","🔎","Weather Lookup","Check any city's weather right now","m-lookup"],
   ];
-  modes.forEach(([id,emoji,t,d]) => {
-    const b = el(`<button class="mode-btn"><span class="emoji">${emoji}</span>
-      <span><span class="t">${t}</span><br><span class="d">${d}</span></span></button>`);
+  modes.forEach(([id,emoji,t,d,cls]) => {
+    const b = el(`<button class="mode-card ${cls}">
+      <span class="emoji">${emoji}</span>
+      <span class="body"><span class="title">${t}</span><span class="desc">${d}</span></span>
+      <span class="arrow">→</span>
+    </button>`);
     b.onclick = () => startMode(id);
-    screen.appendChild(b);
+    grid.appendChild(b);
   });
+  screen.appendChild(grid);
 
-  // Settings row: units + rounds
   const s = el(`<div class="settings">
     <span>Units</span>
     <span class="seg" id="unitSeg">
@@ -335,16 +488,17 @@ function startMode(id){
 const game = { mode: null, round: 0, score: 0 };
 
 function loadingScreen(){
-  screen.innerHTML = `<div class="q"><span class="spin">🌀</span> Fetching live weather…</div>`;
+  const p = newPanel();
+  p.innerHTML = `<div class="q"><span class="spin">🌀</span> Fetching live weather…</div>`;
 }
 function errorScreen(msg){
-  screen.innerHTML = "";
-  screen.appendChild(el(`<div class="banner">${msg}</div>`));
-  const retry = el(`<button class="btn-primary">Try again</button>`);
+  const p = newPanel();
+  p.appendChild(el(`<div class="banner">${msg}</div>`));
+  const retry = el(`<button class="btn btn-primary">Try again</button>`);
   retry.onclick = () => nextRound();
-  const back = el(`<button class="btn-ghost" style="margin-top:10px">Back to menu</button>`);
+  const back = el(`<button class="btn btn-ghost">Back to menu</button>`);
   back.onclick = renderMenu;
-  screen.appendChild(retry); screen.appendChild(back);
+  p.appendChild(retry); p.appendChild(back);
 }
 
 async function nextRound(){
@@ -362,25 +516,25 @@ async function nextRound(){
 }
 
 function topbarHTML(){
-  return `<div class="topbar"><span>Round ${game.round} / ${settings.rounds}</span>
-    <span>Score: ${game.score}</span></div>`;
+  return `<div class="topbar"><span class="pill-tag">Round ${game.round} / ${settings.rounds}</span>
+    <span class="pill-tag">Score: ${game.score}</span></div>`;
 }
 
 // Renders a multiple-choice question and wires up scoring + a Next button.
 function renderQuestion({questionHTML, options, correctIndex, reveal}){
-  screen.innerHTML = "";
-  screen.appendChild(el(topbarHTML()));
-  if (questionHTML) screen.appendChild(el(questionHTML));
+  const p = newPanel();
+  p.appendChild(el(topbarHTML()));
+  if (questionHTML) p.appendChild(el(questionHTML));
   const optWrap = el(`<div class="options"></div>`);
   const buttons = options.map((label, i) => {
-    const b = el(`<button>${label}</button>`);
+    const b = el(`<button class="opt">${label}</button>`);
     b.onclick = () => answer(i);
     optWrap.appendChild(b);
     return b;
   });
-  screen.appendChild(optWrap);
+  p.appendChild(optWrap);
   const fb = el(`<div class="feedback"></div>`);
-  screen.appendChild(fb);
+  p.appendChild(fb);
 
   function answer(chosen){
     buttons.forEach((b,i) => {
@@ -391,9 +545,9 @@ function renderQuestion({questionHTML, options, correctIndex, reveal}){
     if (chosen === correctIndex){ game.score++; fb.textContent = "✅ Correct! " + reveal; fb.className = "feedback good"; }
     else { fb.textContent = "❌ " + reveal; fb.className = "feedback bad"; }
 
-    const next = el(`<button class="btn-primary">${game.round >= settings.rounds ? "See results" : "Next question →"}</button>`);
+    const next = el(`<button class="btn btn-primary">${game.round >= settings.rounds ? "See results" : "Next question →"}</button>`);
     next.onclick = () => nextRound();
-    screen.appendChild(next);
+    p.appendChild(next);
   }
 }
 
@@ -447,33 +601,38 @@ async function roundHotter(){
 function endGame(){
   const pct = game.score / settings.rounds;
   let msg = "Rough one! The atmosphere had other plans.";
-  if (pct === 1) msg = "Perfect round — you really know your weather! 🏆";
-  else if (pct >= 0.6) msg = "Nice work — sharp guessing. 🎯";
-  else if (pct > 0) msg = "Not bad — the planet is a big place. 🌍";
-  screen.innerHTML = `<div class="q" style="font-size:1.4rem">You scored ${game.score} / ${settings.rounds}</div>
+  let face = "🌧️";
+  if (pct === 1) { msg = "Perfect round — you really know your weather!"; face = "🏆"; }
+  else if (pct >= 0.6) { msg = "Nice work — sharp guessing."; face = "🎯"; }
+  else if (pct > 0) { msg = "Not bad — the planet is a big place."; face = "🌍"; }
+  const p = newPanel();
+  p.innerHTML = `<div class="wcard">
+      <div class="big">${face}</div>
+      <div class="cond">You scored ${game.score} / ${settings.rounds}</div>
+    </div>
     <div class="feedback good">${msg}</div>`;
-  const again = el(`<button class="btn-primary">Play again</button>`);
+  const again = el(`<button class="btn btn-primary">Play again</button>`);
   again.onclick = () => startMode(game.mode);
-  const menu = el(`<button class="btn-ghost" style="margin-top:10px">Back to menu</button>`);
+  const menu = el(`<button class="btn btn-ghost">Back to menu</button>`);
   menu.onclick = renderMenu;
-  screen.appendChild(again); screen.appendChild(menu);
+  p.appendChild(again); p.appendChild(menu);
 }
 
 // =========================================================================
 //  MODE 4: LOOKUP (free-text; uses the geocoding endpoint)
 // =========================================================================
 function renderLookup(){
-  screen.innerHTML = "";
-  screen.appendChild(el(`<div class="q">🔎 Weather Lookup</div>`));
+  const p = newPanel();
+  p.appendChild(el(`<div class="q">🔎 Weather Lookup</div>`));
   const input = el(`<input type="text" placeholder="Type a city, e.g. Paris" autocomplete="off">`);
-  screen.appendChild(input);
-  const result = el(`<div id="lookupResult"></div>`);
+  p.appendChild(input);
   const row = el(`<div class="row"></div>`);
-  const go = el(`<button class="btn-primary">Get weather</button>`);
-  const back = el(`<button class="btn-ghost">Back to menu</button>`);
+  const go = el(`<button class="btn btn-primary">Get weather</button>`);
+  const back = el(`<button class="btn btn-ghost" style="margin-top:0">Back to menu</button>`);
   row.appendChild(go); row.appendChild(back);
-  screen.appendChild(row);
-  screen.appendChild(result);
+  p.appendChild(row);
+  const result = el(`<div id="lookupResult" style="margin-top:14px"></div>`);
+  p.appendChild(result);
   back.onclick = renderMenu;
 
   async function doLookup(){
