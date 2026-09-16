@@ -168,6 +168,12 @@
     transition: background .12s ease, color .12s ease;
   }
   .seg button.on { background: var(--city); color: #fff; box-shadow: 0 3px 8px rgba(47,116,224,0.35); }
+  .level-hint {
+    text-align: center; margin: 12px auto 0; font-weight: 700;
+    color: #3c4f72; font-size: 0.9rem;
+    background: rgba(255,255,255,0.75); border-radius: 999px;
+    padding: 8px 16px; width: fit-content; max-width: 100%;
+  }
 
   /* ---- Panel (game / lookup / results) ---- */
   .panel {
@@ -385,9 +391,22 @@ const WMO = {
 function describe(code){ return WMO[code] || ["Unknown conditions","❓"]; }
 
 // ---- Settings (user-adjustable params) ----
-const settings = { units: "C", rounds: 5 };
+const settings = { units: "C", rounds: 5, level: "medium" };
 function cToF(c){ return c * 9/5 + 32; }
 function fmtTemp(c){ return settings.units === "F" ? `${Math.round(cToF(c))}°F` : `${Math.round(c)}°C`; }
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+// The whole-number temperature a player actually sees (used to keep the
+// "Hotter City" answer fair — two options must never display the same value).
+function shownTemp(c){ return settings.units === "F" ? Math.round(cToF(c)) : Math.round(c); }
+// Format a bucket edge in the player's chosen unit.
+function edge(c){ return settings.units === "F" ? `${Math.round(cToF(c))}°F` : `${c}°C`; }
+
+// One-line explanation of what each difficulty does (shown under the menu).
+const LEVEL_HINT = {
+  easy:   "🟢 Easy — the answer choices are far apart and easy to tell apart.",
+  medium: "🟡 Medium — a balanced mix of choices.",
+  hard:   "🔴 Hard — the choices are close together and easy to confuse.",
+};
 
 // ---- API layer -------------------------------------------------------------
 class WeatherError extends Error {}
@@ -483,6 +502,10 @@ function renderMenu(){
   screen.appendChild(grid);
 
   const s = el(`<div class="settings">
+    <span>Level</span>
+    <span class="seg" id="levelSeg">
+      ${["easy","medium","hard"].map(l=>`<button data-l="${l}" class="${settings.level===l?"on":""}">${cap(l)}</button>`).join("")}
+    </span>
     <span>Units</span>
     <span class="seg" id="unitSeg">
       <button data-u="C" class="${settings.units==="C"?"on":""}">°C</button>
@@ -494,8 +517,12 @@ function renderMenu(){
     </span>
   </div>`);
   screen.appendChild(s);
+  s.querySelectorAll("#levelSeg button").forEach(b => b.onclick = () => { settings.level = b.dataset.l; renderMenu(); });
   s.querySelectorAll("#unitSeg button").forEach(b => b.onclick = () => { settings.units = b.dataset.u; renderMenu(); });
   s.querySelectorAll("#roundSeg button").forEach(b => b.onclick = () => { settings.rounds = +b.dataset.r; renderMenu(); });
+
+  const hint = el(`<div class="level-hint">${LEVEL_HINT[settings.level]}</div>`);
+  screen.appendChild(hint);
 }
 
 function startMode(id){
@@ -538,7 +565,7 @@ async function nextRound(){
 }
 
 function topbarHTML(){
-  return `<div class="topbar"><span class="pill-tag">Round ${game.round} / ${settings.rounds}</span>
+  return `<div class="topbar"><span class="pill-tag">Round ${game.round} / ${settings.rounds} · ${cap(settings.level)}</span>
     <span class="pill-tag">Score: ${game.score}</span></div>`;
 }
 
@@ -573,10 +600,24 @@ function renderQuestion({questionHTML, options, correctIndex, reveal}){
   }
 }
 
-// Mode 1: guess the city from a weather readout
+// Mode 1: guess the city from a weather readout.
+// Difficulty controls how similar the distractor cities' climates are, using
+// absolute latitude as a cheap climate proxy (so we still make just ONE
+// weather call per round). Easy => very different latitudes (different
+// climates); Hard => similar latitudes (confusably alike).
 async function roundCity(){
-  const picks = sample(CITIES, 4);
-  const answer = picks[Math.floor(Math.random()*picks.length)];
+  const answer = CITIES[Math.floor(Math.random()*CITIES.length)];
+  const others = CITIES.filter(c => c !== answer);
+  const absA = Math.abs(answer.lat);
+  let pool = others;
+  if (settings.level === "hard") {
+    pool = [...others].sort((a,b) =>
+      Math.abs(Math.abs(a.lat)-absA) - Math.abs(Math.abs(b.lat)-absA)).slice(0, 8);
+  } else if (settings.level === "easy") {
+    pool = [...others].sort((a,b) =>
+      Math.abs(Math.abs(b.lat)-absA) - Math.abs(Math.abs(a.lat)-absA)).slice(0, 8);
+  }
+  const picks = shuffle([answer, ...sample(pool, 3)]);
   const w = await getWeather(answer.lat, answer.lon);
   renderQuestion({
     questionHTML: weatherCardHTML(w, false) + `<div class="q">Which city has this weather right now?</div>`,
@@ -586,37 +627,86 @@ async function roundCity(){
   });
 }
 
-// Mode 2: guess the temperature bucket
-const BUCKETS = ["Below 0°C","0–10°C","10–20°C","20–30°C","Above 30°C"];
+// Mode 2: guess the temperature bucket.
+// Easy => wide buckets, distractors chosen as far as possible from the answer.
+// Medium => wide buckets, random distractors.
+// Hard => narrow 5° buckets with neighbouring ranges as distractors.
 function bucketOf(c){ if (c<0) return 0; if (c<10) return 1; if (c<20) return 2; if (c<30) return 3; return 4; }
+function wideLabel(i){
+  const e = [0,10,20,30];
+  if (i === 0) return `Below ${edge(0)}`;
+  if (i === 4) return `Above ${edge(30)}`;
+  return `${edge(e[i-1])}–${edge(e[i])}`;
+}
+function fineLabel(lo){ return `${edge(lo)}–${edge(lo+5)}`; }
+
 async function roundTemp(){
   const city = CITIES[Math.floor(Math.random()*CITIES.length)];
   const w = await getWeather(city.lat, city.lon);
-  const correct = BUCKETS[bucketOf(w.temp_c)];
-  const distractors = shuffle(BUCKETS.filter(b => b !== correct)).slice(0,3);
-  const opts = shuffle([correct, ...distractors]);
+  const c = w.temp_c;
+  let correct, opts;
+
+  if (settings.level === "hard") {
+    const lo = Math.floor(c/5)*5;               // nearest 5° bucket below temp
+    correct = fineLabel(lo);
+    const neighbours = [-2,-1,1,2].map(k => fineLabel(lo + k*5));
+    opts = shuffle([correct, ...sample(neighbours, 3)]);
+  } else {
+    const ci = bucketOf(c);
+    correct = wideLabel(ci);
+    let idxs = [0,1,2,3,4].filter(i => i !== ci);
+    if (settings.level === "easy") {
+      idxs.sort((a,b) => Math.abs(b-ci) - Math.abs(a-ci)); // farthest buckets first
+      idxs = idxs.slice(0, 3);
+    } else {
+      idxs = sample(idxs, 3);
+    }
+    opts = shuffle([correct, ...idxs.map(wideLabel)]);
+  }
+
   renderQuestion({
     questionHTML: `<div class="q">🌡️ What's the current temperature in<br><b>${city.name}, ${city.country}</b>?</div>`,
     options: opts,
     correctIndex: opts.indexOf(correct),
-    reveal: `It's ${fmtTemp(w.temp_c)} in ${city.name}.`,
+    reveal: `It's ${fmtTemp(c)} in ${city.name}.`,
   });
 }
 
-// Mode 3: which city is hotter
+// Mode 3: which city is hotter.
+// Fetch a small pool, then pick a pair by temperature gap: Easy => biggest
+// gap, Medium => middling, Hard => smallest gap that still shows two DIFFERENT
+// rounded temperatures (so the answer is never ambiguous).
 async function roundHotter(){
-  let a, b, wa, wb;
-  for (let tries = 0; tries < 5; tries++){
-    [a, b] = sample(CITIES, 2);
-    [wa, wb] = await Promise.all([getWeather(a.lat,a.lon), getWeather(b.lat,b.lon)]);
-    if (wa.temp_c !== wb.temp_c) break;
+  const poolCities = sample(CITIES, 6);
+  const ws = await Promise.all(poolCities.map(c => getWeather(c.lat, c.lon)));
+  const arr = poolCities.map((c,i) => ({ c, w: ws[i] }));
+
+  // All pairs whose displayed (rounded) temperatures differ.
+  const pairs = [];
+  for (let i=0; i<arr.length; i++)
+    for (let j=i+1; j<arr.length; j++)
+      if (shownTemp(arr[i].w.temp_c) !== shownTemp(arr[j].w.temp_c))
+        pairs.push({ a: arr[i], b: arr[j], gap: Math.abs(arr[i].w.temp_c - arr[j].w.temp_c) });
+  pairs.sort((x,y) => x.gap - y.gap);
+
+  let chosen;
+  if (pairs.length === 0) {                 // extremely rare: everything ties
+    chosen = { a: arr[0], b: arr[arr.length-1] };
+  } else if (settings.level === "easy") {
+    chosen = pairs[pairs.length-1];         // biggest gap
+  } else if (settings.level === "hard") {
+    chosen = pairs[0];                       // smallest distinguishable gap
+  } else {
+    chosen = pairs[Math.floor(pairs.length/2)];
   }
-  const aHotter = wa.temp_c > wb.temp_c;
+
+  const two = shuffle([chosen.a, chosen.b]);
+  const aHotter = two[0].w.temp_c > two[1].w.temp_c;
   renderQuestion({
     questionHTML: `<div class="q">🔥 Which city is warmer right now?</div>`,
-    options: [`${a.name}, ${a.country}`, `${b.name}, ${b.country}`],
+    options: two.map(x => `${x.c.name}, ${x.c.country}`),
     correctIndex: aHotter ? 0 : 1,
-    reveal: `${a.name} ${fmtTemp(wa.temp_c)} · ${b.name} ${fmtTemp(wb.temp_c)}.`,
+    reveal: `${two[0].c.name} ${fmtTemp(two[0].w.temp_c)} · ${two[1].c.name} ${fmtTemp(two[1].w.temp_c)}.`,
   });
 }
 

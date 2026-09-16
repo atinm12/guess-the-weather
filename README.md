@@ -21,9 +21,20 @@ Both use the same keyless Open-Meteo API and offer the same four modes.
 | **Guess the Temperature** | Given a city, pick the temperature range it's currently in. |
 | **Hotter City** | Two cities head-to-head — pick the warmer one right now. |
 | **Weather Lookup** | Type any city name and see its current conditions. |
-| **Settings** | Switch between Celsius/Fahrenheit and set how many rounds a game lasts. |
 
 Quiz modes track your score across the rounds and give you a final tally.
+
+### Difficulty levels
+
+Pick **Easy / Medium / Hard** on the home screen (alongside the °C/°F and round
+selectors). The level changes how *confusable* the answer choices are:
+
+- **Guess the City** — Easy picks distractor cities from very different climates
+  (using latitude as a proxy); Hard picks climatically similar ones.
+- **Guess the Temperature** — Easy uses wide 10° buckets with far-apart options;
+  Hard uses narrow 5° buckets with neighbouring ranges.
+- **Hotter City** — Easy pairs cities with a big temperature gap; Hard picks the
+  closest pair that still shows two different temperatures (so it stays fair).
 
 ## How the API is called
 
