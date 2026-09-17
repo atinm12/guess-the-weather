@@ -75,3 +75,8 @@ proxy), Guess the Temperature switches from wide 10° buckets to narrow 5° ones
 and Hotter City picks city pairs with a large gap (easy) down to the smallest
 still-distinguishable gap (hard). It also made a point of keeping Hard fair —
 never showing two cities with the same rounded temperature.
+
+### 9. Writing the README myself
+I wrote the README by hand (rather than having Claude generate it) so the
+explanation of how the app calls the Open-Meteo API and how to run it is in my
+own words. I then asked Claude to update this prompt log to record that.
