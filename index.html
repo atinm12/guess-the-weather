@@ -464,11 +464,10 @@ async function getWeather(lat, lon){
   }
 }
 
-async function fetchWeather(lat, lon){
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
-    + `&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature`;
-  const data = await getJSON(url);
-  const c = data.current;
+const CURRENT_FIELDS =
+  "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature";
+
+function normalizeCurrent(c){
   if (!c || c.temperature_2m === undefined || c.weather_code === undefined) {
     throw new WeatherError("Weather response was missing expected fields.");
   }
@@ -478,6 +477,46 @@ async function fetchWeather(lat, lon){
     humidity: c.relative_humidity_2m, wind: c.wind_speed_10m,
     code: c.weather_code, desc, emoji,
   };
+}
+
+async function fetchWeather(lat, lon){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+    + `&current=${CURRENT_FIELDS}`;
+  const data = await getJSON(url);
+  return normalizeCurrent(data.current);
+}
+
+// Fetch several cities in ONE request (comma-separated coords) to avoid
+// hammering the API with parallel calls. Uses the same per-city cache.
+async function getWeatherMany(cities){
+  const results = new Array(cities.length);
+  const misses = [];
+  cities.forEach((city, i) => {
+    const hit = weatherCache.get(`${city.lat},${city.lon}`);
+    if (hit && Date.now() - hit.at < WEATHER_TTL) results[i] = hit.promise;
+    else misses.push({ i, city });
+  });
+
+  if (misses.length){
+    const lats = misses.map(m => m.city.lat).join(",");
+    const lons = misses.map(m => m.city.lon).join(",");
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}`
+      + `&current=${CURRENT_FIELDS}`;
+    // A multi-location request returns an array; a single one returns an object.
+    const data = await getJSON(url);
+    const list = Array.isArray(data) ? data : [data];
+    if (list.length !== misses.length) {
+      throw new WeatherError("Weather response didn't match the cities requested.");
+    }
+    misses.forEach((m, k) => {
+      const w = normalizeCurrent(list[k].current);
+      const p = Promise.resolve(w);
+      weatherCache.set(`${m.city.lat},${m.city.lon}`, { at: Date.now(), promise: p });
+      results[m.i] = p;
+    });
+  }
+
+  return Promise.all(results);
 }
 
 async function geocode(name){
@@ -716,7 +755,7 @@ async function roundTemp(){
 // rounded temperatures (so the answer is never ambiguous).
 async function roundHotter(){
   const poolCities = sample(CITIES, 6);
-  const ws = await Promise.all(poolCities.map(c => getWeather(c.lat, c.lon)));
+  const ws = await getWeatherMany(poolCities);
   const arr = poolCities.map((c,i) => ({ c, w: ws[i] }));
 
   // All pairs whose displayed (rounded) temperatures differ.
