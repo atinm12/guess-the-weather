@@ -411,22 +411,60 @@ const LEVEL_HINT = {
 // ---- API layer -------------------------------------------------------------
 class WeatherError extends Error {}
 
-async function getJSON(url){
-  let resp;
-  try {
-    resp = await fetch(url);
-  } catch (e) {
-    throw new WeatherError("Couldn't reach the weather service — check your internet connection.");
-  }
-  if (!resp.ok) throw new WeatherError(`The weather service returned an error (${resp.status}).`);
-  try {
-    return await resp.json();
-  } catch (e) {
-    throw new WeatherError("Got an unreadable response from the weather service.");
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function getJSON(url, { retries = 3 } = {}){
+  for (let attempt = 0; ; attempt++) {
+    let resp;
+    try {
+      resp = await fetch(url);
+    } catch (e) {
+      throw new WeatherError("Couldn't reach the weather service — check your internet connection.");
+    }
+
+    if (resp.ok) {
+      try {
+        return await resp.json();
+      } catch (e) {
+        throw new WeatherError("Got an unreadable response from the weather service.");
+      }
+    }
+
+    // 429 = rate limited, 5xx = temporary server hiccup. Back off and retry.
+    const retryable = resp.status === 429 || resp.status >= 500;
+    if (retryable && attempt < retries) {
+      const header = parseFloat(resp.headers.get("Retry-After"));
+      const wait = Number.isFinite(header) ? header * 1000 : 600 * Math.pow(2, attempt);
+      await sleep(wait);
+      continue;
+    }
+
+    if (resp.status === 429) {
+      throw new WeatherError("The weather service is busy right now (too many requests). Give it a few seconds and try again.");
+    }
+    throw new WeatherError(`The weather service returned an error (${resp.status}).`);
   }
 }
 
+const weatherCache = new Map();      // key -> { at, promise }
+const WEATHER_TTL = 5 * 60 * 1000;   // weather barely moves in 5 min; reuse it
+
 async function getWeather(lat, lon){
+  const key = `${lat},${lon}`;
+  const hit = weatherCache.get(key);
+  if (hit && Date.now() - hit.at < WEATHER_TTL) return hit.promise;
+
+  const promise = fetchWeather(lat, lon);
+  weatherCache.set(key, { at: Date.now(), promise });
+  try {
+    return await promise;
+  } catch (e) {
+    weatherCache.delete(key);         // don't cache failures
+    throw e;
+  }
+}
+
+async function fetchWeather(lat, lon){
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
     + `&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature`;
   const data = await getJSON(url);
